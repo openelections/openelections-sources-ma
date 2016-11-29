@@ -12,3 +12,7 @@ This will install [pdftohtmlex](http://https://github.com/coolwanglu/pdf2htmlEX/
 To convert the pdfs to html (and copy over the already html files) into `2016/html`, run:
 
     make get-everything-into-html
+
+To convert the html to csv and put them in `2016/csv`, run:
+
+    make get-html-into-csv
