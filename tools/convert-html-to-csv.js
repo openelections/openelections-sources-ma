@@ -17,14 +17,14 @@ function parseHTML(htmlString) {
   var rows = parseChelmsfordStyleHTML(htmlString);
 
   if (rows.length < 0) {
-    // Try something else.
+    // TODO: Try something else.
   }
 
-  rows.forEach(writeRow);
+  dropEmptyColumns(rows).forEach(writeRow);
 }
 
 function writeRow(csvRow) {
-  process.stdout.write(csvRow.join(',') + '\n');
+  process.stdout.write(csvRow.map(quote).join(',') + '\n');
 }
 
 function parseChelmsfordStyleHTML(htmlString) {
@@ -33,30 +33,48 @@ function parseChelmsfordStyleHTML(htmlString) {
   var tables = $('.t');
   for (let tableIndex = 0; tableIndex < tables.length; ++tableIndex) {
     let csvRow = [];
+    let leftmostColumnData = [];
+    let leftmostColumnDataComplete = false;
     let table = tables[tableIndex];
 
-    if (table.childNodes && table.childNodes.length > 0) {
-      let label = table.childNodes[0].data;
-      csvRow.push(quote(label));
+    for (let childIndex = 0; childIndex < table.childNodes.length; ++childIndex) {
+      var child = table.childNodes[childIndex];
+
+      if (!leftmostColumnDataComplete &&
+        child.type === 'tag' &&
+        child.attribs &&
+        child.attribs.class &&
+        (child.attribs.class.indexOf('ws1') !== -1 ||
+        child.attribs.class.indexOf('ws2') !== -1)) {
+        
+        leftmostColumnDataComplete = true;
+        csvRow.push(leftmostColumnData.join(''));
+
+        addParentAndChildValuesToArray(child, csvRow);
+      }
+      else {
+        addParentAndChildValuesToArray(child, leftmostColumnData);
+      }
     }
 
-    let valuesContainers = $('.ws1', table);
-
-    if (valuesContainers.length > 0) {
-      let valuesContainer = valuesContainers[0];
-      if (valuesContainer.childNodes) {
-        for (let valueIndex = 0; valueIndex < valuesContainer.childNodes.length; ++valueIndex) {
-          let possibleValue = valuesContainer.childNodes[valueIndex];
-          if (possibleValue.type === 'text') {
-            csvRow.push(quote(possibleValue.data));
-          }
-        }
-      }
+    if (!leftmostColumnDataComplete) {
+      csvRow.push(leftmostColumnData.join(''));      
     }
     rows.push(csvRow);
   }
 
   return rows;
+}
+
+function addParentAndChildValuesToArray(parent, valuesArray) {
+  if (parent.type === 'text') {
+    valuesArray.push(parent.data);
+  }
+  else if (parent.type === 'tag') {
+    for (let childIndex = 0; childIndex < parent.childNodes.length; ++childIndex) {
+      addParentAndChildValuesToArray(parent.childNodes[childIndex], valuesArray);
+    }
+  }
 }
 
 function logError(error) {
@@ -67,4 +85,33 @@ function logError(error) {
 
 function quote(s) {
   return '"' + s + '"';
+}
+
+function dropEmptyColumns(rows) {
+  var occupiedColumnIndexes = [];
+  rows.forEach(checkColsInRow);
+  return rows.map(rowWithoutEmptyColumns);
+
+  function checkColsInRow(row) {
+    var startCol = 0;
+    if (occupiedColumnIndexes.length > 0) {
+      startCol = occupiedColumnIndexes[occupiedColumnIndexes.length - 1] + 1;
+    }
+    for (var i = startCol; i < row.length; ++i) {
+      let val = row[i];
+      if (val !== undefined) {
+        if (typeof val === 'string' && val.trim() !== '') {
+          occupiedColumnIndexes.push(i);
+        }
+      }
+    }
+  }
+
+  function rowWithoutEmptyColumns(row) {
+    var newRow = [];
+    for (var j = 0; j < occupiedColumnIndexes.length; ++j) {
+      newRow.push(row[occupiedColumnIndexes[j]] || '');
+    }
+    return newRow;
+  }
 }
