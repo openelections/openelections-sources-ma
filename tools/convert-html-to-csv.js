@@ -14,6 +14,21 @@ var htmlFilePath = process.argv[2];
 fs.readFile(htmlFilePath, sb(parseHTML, logError));
 
 function parseHTML(htmlString) {
+  var rows = parseChelmsfordStyleHTML(htmlString);
+
+  if (rows.length < 0) {
+    // Try something else.
+  }
+
+  rows.forEach(writeRow);
+}
+
+function writeRow(csvRow) {
+  process.stdout.write(csvRow.join(',') + '\n');
+}
+
+function parseChelmsfordStyleHTML(htmlString) {
+  var rows = [];
   var $ = cheerio.load(htmlString);
   var tables = $('.t');
   for (let tableIndex = 0; tableIndex < tables.length; ++tableIndex) {
@@ -38,8 +53,10 @@ function parseHTML(htmlString) {
         }
       }
     }
-    process.stdout.write(csvRow.join(',') + '\n');
+    rows.push(csvRow);
   }
+
+  return rows;
 }
 
 function logError(error) {
